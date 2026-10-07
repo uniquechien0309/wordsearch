@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>國小生字查詢與檢測系統</title>
+    <!-- 載入 Tailwind CSS 作為樣式框架 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 React, ReactDOM 與 Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+        .tab-active { border-bottom-color: #3b82f6; color: #1d4ed8; }
+        .tab-inactive { border-bottom-color: transparent; color: #64748b; }
+        .tab-inactive:hover { color: #334155; border-bottom-color: #cbd5e1; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // ==========================================
+        // 📚 生字資料庫設定區 (完全依照您提供的一上到三上設定)
+        // ==========================================
+        
+        // 定義年級與類型的權重，用於判斷覆蓋邏輯
+        const gradeLevel = {
+            "一上": 1, "一下": 2, "二上": 3, "二下": 4, "三上": 5
+        };
+        const typeLevel = {
+            "認讀字": 1, "生字": 2, "習寫字": 2 // 將「生字」視同「習寫字」權重
+        };
+
+        const rawData = [
+            { grade: "一上", type: "生字", chars: "七秋千起青九好和海花紅課看開個高六了兩拉裡路你那他同頭的多到大朵分們門麼拍陪朋八比不白二啊五我玩蛙外晚王一右也友有又三四從左子早走在人十手上是誰山什說長這找隻主下小心向" },
+            { grade: "一下", type: "生字", chars: "去輕趣奇情前清靜就家見澆酒己金淨件今記加會後回話歡黑虹很化空快靠口卡顆歌過港光公跟給更缸國來亮落鳥呢暖奶拿您天聽脫它她躺糖太跳停短弟都得滴低地道第燈點放風福沒媽夢棉妹面馬每嗎慢片漂跑把爸伴班變半吧幫兒鵝雲園樂於院雨魚完聞溫問要芽音陽遊游葉油掃送草菜才彩次再怎做作自認日水身始受雙刷樹升神事生時收蟲唱出吃船床成穿除楚正著重陣桌真種珍珠箏知張祝先新香鞋像享需寫喜戲洗線笑學謝想休息" },
+            { grade: "二上", type: "習寫字", chars: "希現巷協鄉西行許象雪相欣幸全茄切娶氣親牽卻期季具急居聚叫近節進簡街幾紀竟煎夾接腳假活喝哈火貨寒灰還畫蝴黃汗河划可跨客渴砍敢故乾鼓鍋老力輪臉麗籃林旅梨冷涼絡年娘鬧南哪難念吐甜腿臺牠團淡蛋蝶打動帶等單東但冬待番方法反飯飛服發貓忙美買明滿冒咪妙捧飄排胖瓶皮本堡筆扮步邊捕餅棒部北飽膀冰愛用圓越運原遠月愉望位為屋舞哇往烏物午忘圍以樣因意衣眼搖沿夜煙洋司色思森雖此聰操粗坐最嘴熱容如然書師叔聲暑識石首少伸沙城吹臣沖沉春翅充只中竹鎮針直裝柱者站" },
+            { grade: "二上", type: "認讀字", chars: "熊牆醬慌聊戴模埔拔扁矮碗灣鴉賽餐曹聲柿裳秤轉綻" },
+            { grade: "二下", type: "習寫字", chars: "興星辛校惜吸信細消嚇醒熊些形險裙且強悄鉛其請錢牆雞經晴尖架講甲交界巨緊景驚間將漸角晶蕉軍堅教及借久合候互換猴孩皇呼苦棵刻庫狂工各果共掛剛告固管哥狗怪顧趕館根藍綠論流立良浪琅令累量牛能塘田桃討貼突特透條兔探體貪圖題桶洞躲對定當度帝島踮蹈袋讀倒底蜂粉房幅髮蜜芒祕模木摸旁品派表被臂寶貝抱並病辦鼻巴波百而耳暗安餓永元約窩微文無尾顏揚爺羊鴨銀迎所散訴採猜錯村參紫座仔足忍裳舌賞閃睡室鼠士數世食池處常車傳差指綻照終枝之住抓准朝轉啄志睜" },
+            { grade: "二下", type: "認讀字", chars: "掀騎慶剪機壞坑蓋踏鴕避蹦奧挖燕議邀艘索融鼠窗" },
+            { grade: "三上", type: "習寫字", chars: "習夕型兄羨欺球棄曲忌機膠計救航戶穫喊懷護或慧狐揮塊枯觀感該關蓋古功冠料留露練利瞭蓮里離淚努泥農痛通統鐵態踢妒答店毒段肚盪頂釣扶負非奮副附訪仿名迷秒毛密免漫慕怕平婆坡盼板暴闆擺必博敗兵標別拜案岸阿遇愈育勇語悅羽危網悟易由壓應硬憶呀鴉優雅咬已灑賽傘似酸隨松刺蒼層字載總澡族造鑽讓繞柔揉肉失實射使商史守溼式盛窗場拆舟專追撞準整植智壯" },
+            { grade: "三上", type: "認讀字", chars: "蝦顯嚼極晃荷恍葵貴亂蘭狸黏萄啼導喵翩炮葡綁脖鞍歪霧萬啞絲鬆髒茸獅丑觸齒鄭駐築掌" }
+        ];
+
+        const vocabularyDB = {};
+
+        // 建立資料庫並處理「認讀字變為習寫字」的覆蓋邏輯
+        rawData.forEach(({ grade, type, chars }) => {
+            for (let char of chars) {
+                const currentEntry = vocabularyDB[char];
+                const newGradeLvl = gradeLevel[grade] || 0;
+                const newTypeLvl = typeLevel[type] || 0;
+
+                if (!currentEntry) {
+                    vocabularyDB[char] = { grade, type, gradeLvl: newGradeLvl, typeLvl: newTypeLvl };
+                } else {
+                    let shouldUpdate = false;
+                    // 規則1：如果原本是認讀字，後來(等於或大於原本年級)變成習寫字(或生字)，則覆蓋升級
+                    if (newTypeLvl > currentEntry.typeLvl && newGradeLvl >= currentEntry.gradeLvl) {
+                        shouldUpdate = true;
+                    } 
+                    // 規則2：如果是同類型(例如都是習寫字)，保留最低(最早)學過的年級
+                    else if (newTypeLvl === currentEntry.typeLvl && newGradeLvl < currentEntry.gradeLvl) {
+                        shouldUpdate = true;
+                    }
+                    
+                    if (shouldUpdate) {
+                        vocabularyDB[char] = { grade, type, gradeLvl: newGradeLvl, typeLvl: newTypeLvl };
+                    }
+                }
+            }
+        });
+
+        // 判斷是否為中文字的正規表達式
+        const isChineseChar = (char) => {
+            return /[\u4E00-\u9FFF]/.test(char);
+        };
+
+        const SingleCharQuery = () => {
+            const [query, setQuery] = React.useState('');
+            const [result, setResult] = React.useState(null);
+            const [hasSearched, setHasSearched] = React.useState(false);
+
+            const handleSearch = () => {
+                if (!query) return;
+                setHasSearched(true);
+                const char = query.charAt(0); // 只取第一個字
+                const info = vocabularyDB[char];
+                if (info) {
+                    setResult({ found: true, char, grade: info.grade, type: info.type });
+                } else {
+                    setResult({ found: false, char });
+                }
+            };
+
+            const handleInputChange = (e) => {
+                const val = e.target.value;
+                setQuery(val.substring(0, 1));
+                setHasSearched(false);
+            };
+
+            return (
+                <div className="flex flex-col gap-6">
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800 leading-relaxed">
+                        請在下方輸入一個國字，系統將告訴您這個字是否已經學習過。如果曾被列為「認讀字」後續又教了「習寫字」，系統會自動為您顯示習寫字的年段。
+                    </div>
+                    
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={query}
+                            onChange={handleInputChange}
+                            placeholder="請輸入一個字 (例如: 熊)" 
+                            className="flex-1 border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg shadow-sm"
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                        />
+                        <button 
+                            onClick={handleSearch}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50"
+                            disabled={!query}
+                        >
+                            查詢
+                        </button>
+                    </div>
+
+                    {hasSearched && result && (
+                        <div className="mt-4">
+                            {result.found ? (
+                                <div className="bg-green-50 border-l-4 border-green-500 p-6 rounded-r-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <h3 className="text-xl font-bold text-green-800 m-0">
+                                        「{result.char}」已學習！
+                                    </h3>
+                                    <div className="inline-block bg-green-200 text-green-900 px-4 py-2 rounded-md text-base font-bold shadow-sm text-center">
+                                        {result.grade} {result.type}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-rose-50 border-l-4 border-rose-500 p-6 rounded-r-lg shadow-sm">
+                                    <h3 className="text-xl font-bold text-rose-800 mb-2">
+                                        「{result.char}」尚未學習
+                                    </h3>
+                                    <p className="text-rose-700">
+                                        這個字目前不在已學習的生字庫中。
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const ParagraphCheck = () => {
+            const [text, setText] = React.useState('');
+            
+            const handleTextChange = (e) => {
+                setText(e.target.value);
+            };
+
+            const renderHighlightedText = () => {
+                if (!text) return <span className="text-slate-400">檢測結果將顯示於此...</span>;
+
+                return text.split('').map((char, index) => {
+                    // 如果是中文字，且不在資料庫中，則標示為紅色
+                    if (isChineseChar(char) && !vocabularyDB[char]) {
+                        return (
+                            <span key={index} className="text-red-600 font-bold underline decoration-red-300 decoration-2 underline-offset-4">
+                                {char}
+                            </span>
+                        );
+                    }
+                    // 已學習的中文字，提供 Hover 提示
+                    if (isChineseChar(char) && vocabularyDB[char]) {
+                        const info = vocabularyDB[char];
+                        return (
+                            <span key={index} title={`${char}: ${info.grade} ${info.type}`} className="cursor-help hover:bg-green-100 transition-colors">
+                                {char}
+                            </span>
+                        );
+                    }
+                    // 標點符號、英數字，正常顯示
+                    return <span key={index}>{char}</span>;
+                });
+            };
+
+            const getStats = () => {
+                const unlearned = new Set();
+                const learned = {}; // 依年級分類已學過的字
+
+                text.split('').forEach(char => {
+                    if (isChineseChar(char)) {
+                        const info = vocabularyDB[char];
+                        if (!info) {
+                            unlearned.add(char);
+                        } else {
+                            const key = `${info.grade} ${info.type}`;
+                            if (!learned[key]) learned[key] = new Set();
+                            learned[key].add(char);
+                        }
+                    }
+                });
+
+                // 排序已學習的分類
+                const sortedLearnedKeys = Object.keys(learned).sort((a, b) => {
+                    const gradeOrder = { "一上":1, "一下":2, "二上":3, "二下":4, "三上":5 };
+                    const typeOrder = { "生字":1, "習寫字":2, "認讀字":3 };
+                    
+                    const gradeA = a.substring(0, 2);
+                    const gradeB = b.substring(0, 2);
+                    const typeA = a.substring(3);
+                    const typeB = b.substring(3);
+                    
+                    if (gradeOrder[gradeA] !== gradeOrder[gradeB]) {
+                        return (gradeOrder[gradeA] || 99) - (gradeOrder[gradeB] || 99);
+                    }
+                    return (typeOrder[typeA] || 99) - (typeOrder[typeB] || 99);
+                });
+
+                return {
+                    unlearnedChars: Array.from(unlearned),
+                    learnedGroups: sortedLearnedKeys.map(key => ({
+                        category: key,
+                        chars: Array.from(learned[key])
+                    }))
+                };
+            };
+
+            const stats = getStats();
+
+            return (
+                <div className="flex flex-col gap-6">
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 text-sm text-indigo-800">
+                        請貼上一段文章，系統會自動將<span className="text-red-600 font-bold">尚未教過</span>的生字標示為紅色。（游標移至黑字上可查看學習年段）
+                    </div>
+
+                    <textarea
+                        value={text}
+                        onChange={handleTextChange}
+                        placeholder="請在此貼上或輸入段落文字..."
+                        className="w-full h-40 border border-slate-300 rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none shadow-sm text-lg leading-relaxed"
+                    ></textarea>
+
+                    <div className="flex flex-col gap-2">
+                        <h3 className="font-semibold text-slate-700 flex justify-between items-end">
+                            <span>檢測結果：</span>
+                            {stats.unlearnedChars.length > 0 && (
+                                <span className="text-sm font-normal text-rose-600 bg-rose-50 px-3 py-1 rounded-full border border-rose-100">
+                                    發現 {stats.unlearnedChars.length} 個未學漢字
+                                </span>
+                            )}
+                        </h3>
+                        <div className="bg-white border border-slate-200 rounded-lg p-6 min-h-[8rem] text-lg leading-loose shadow-inner whitespace-pre-wrap word-break">
+                            {renderHighlightedText()}
+                        </div>
+                    </div>
+
+                    {stats.unlearnedChars.length > 0 && (
+                        <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 mt-2">
+                            <h4 className="text-sm font-semibold text-rose-800 mb-2">未學漢字列表 ({stats.unlearnedChars.length})：</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {stats.unlearnedChars.map((char, idx) => (
+                                    <span key={idx} className="bg-white border border-rose-300 text-rose-700 px-3 py-1 rounded-md text-sm font-medium shadow-sm">
+                                        {char}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {stats.learnedGroups.length > 0 && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mt-2">
+                            <h4 className="text-sm font-semibold text-slate-700 mb-3">已學習漢字分佈：</h4>
+                            <div className="flex flex-col gap-3">
+                                {stats.learnedGroups.map((group, idx) => (
+                                    <div key={idx} className="flex flex-col sm:flex-row sm:items-start gap-2">
+                                        <span className="shrink-0 bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold w-fit sm:w-24 text-center">
+                                            {group.category}
+                                        </span>
+                                        <div className="flex flex-wrap gap-1">
+                                            {group.chars.map((char, cIdx) => (
+                                                <span key={cIdx} className="text-slate-600 text-sm">{char}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = React.useState('single'); // 'single' 或 'paragraph'
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 flex justify-center">
+                    <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col h-fit">
+                        
+                        {/* 標題區 */}
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 md:p-8 text-white">
+                            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                                國小生字查詢與檢測系統
+                            </h1>
+                            <p className="mt-2 text-blue-100 opacity-90 text-sm md:text-base">
+                                幫助您快速確認生字學習進度，字庫範圍：一上至三上。
+                            </p>
+                        </div>
+
+                        {/* 頁籤切換區 */}
+                        <div className="flex border-b border-slate-200 px-6">
+                            <button 
+                                className={`flex-1 py-4 px-2 text-center border-b-2 font-medium text-lg transition-colors duration-200 ${activeTab === 'single' ? 'tab-active' : 'tab-inactive'}`}
+                                onClick={() => setActiveTab('single')}
+                            >
+                                單字查詢
+                            </button>
+                            <button 
+                                className={`flex-1 py-4 px-2 text-center border-b-2 font-medium text-lg transition-colors duration-200 ${activeTab === 'paragraph' ? 'tab-active' : 'tab-inactive'}`}
+                                onClick={() => setActiveTab('paragraph')}
+                            >
+                                段落檢測
+                            </button>
+                        </div>
+
+                        {/* 內容區 */}
+                        <div className="p-6 md:p-8 flex-1 bg-white">
+                            {activeTab === 'single' ? <SingleCharQuery /> : <ParagraphCheck />}
+                        </div>
+                        
+                    </div>
+                </div>
+            );
+        };
+
+        // 渲染應用程式
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
